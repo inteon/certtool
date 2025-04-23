@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "certtool/gen";
+
+message Subject {
+	repeated string Country = 1;
+  repeated string Organization = 2;
+  repeated string OrganizationalUnit = 3;
+	repeated string Locality = 4;
+  repeated string Province = 5;
+	repeated string StreetAddress = 6;
+  repeated string PostalCode = 7;
+	string SerialNumber = 8;
+  string CommonName = 9;
+}

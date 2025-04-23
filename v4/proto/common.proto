@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option go_package = "libx509/gen";
+
+message ObjectIdentifier {
+    repeated int32 object_id_path = 1;
+}
+
+message RDNSequence {
+    repeated RDN relative_distinguished_names = 1;
+}
+
+message RDN {
+    repeated AttributeTypeAndValue attributes = 1;
+}
+
+message AttributeTypeAndValue {
+    ObjectIdentifier type_id = 1;
+    oneof value {
+        string string_value = 2;
+        bytes bytes_value = 3;
+    }
+}
+
+message Extension {
+    ObjectIdentifier object_id = 1;
+    bool critical = 2;
+    bytes value = 3;
+}

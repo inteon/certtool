@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+option go_package = "libx509/gen";
+
+enum ExtendedKeyUsage {
+    any = 0;
+    server_auth = 1;
+    client_auth = 2;
+    code_signing = 3;
+    email_protection = 4;
+    ipsec_end_system = 5;
+    ipsec_tunnel = 6;
+    ipsec_user = 7;
+    time_stamping = 8;
+    ocsp_signing = 9;
+    microsoft_server_gated_crypto = 10;
+    netscape_server_gated_crypto = 11;
+    microsoft_commercial_code_signing = 12;
+    microsoft_kernel_code_signing = 13;
+}

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import "subject.proto";
+import "extension_2.5.29.15_key_usage.proto";
+import "extension_2.5.29.17_subject_alternative_name.proto";
+import "extension_2.5.29.19_basic_constraints.proto";
+import "extension_2.5.29.37_extended_key_usage.proto";
+
+option go_package = "playground/parse/gen";
+
+message CertificateSigningRequest {
+    ExtensionBasicConstraints basic_constraints = 1;
+    Subject subject = 2;
+    ExtensionSubjectAlternativeName subject_alternative_name = 3;
+    repeated KeyUsage key_usages = 4;
+    repeated ExtendedKeyUsage extended_key_usages = 5;
+}

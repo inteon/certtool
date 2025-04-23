@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option go_package = "certtool/gen";
+
+message ExtensionExtendedKeyUsage {
+  repeated ObjectIdentifier extended_key_usages = 1;
+}

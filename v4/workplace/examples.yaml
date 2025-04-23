@@ -1,0 +1,306 @@
+# Copyright 2023 Undistro Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+examples:
+  - name: "default"
+    cel: |
+      // Welcome to the CEL Playground!
+      // CEL Playground is an interactive WebAssembly powered environment to explore and experiment with the Common Expression Language (CEL).
+      //
+      // - Write your CEL expression here
+      // - Use the area on the side for input data, in YAML or JSON format
+      // - Press 'Run' to evaluate your CEL expression against the input data
+      // - Explore our collection of examples for inspiration
+      
+      account.balance >= transaction.withdrawal
+          || (account.overdraftProtection
+          && account.overdraftLimit >= transaction.withdrawal  - account.balance)
+
+    data: |
+      # Here is the input data in YAML or JSON format.
+      
+      account:
+        balance: 500
+        overdraftProtection: true
+        overdraftLimit: 1000
+      transaction:
+        withdrawal: 700
+
+  - name: "Kubernetes: Check image registry"
+    cel: |
+      object.spec.template.spec.containers.all(container,
+        params.allowedRegistries.exists(registry,
+          ((registry in ['docker.io', 'docker.io/library']) && !container.image.contains('/')) ||
+          container.image.startsWith(registry)
+        )
+      )
+    data: |
+      params:
+        allowedRegistries: 
+          - myregistry.com
+          - docker.io # use 'docker.io' for Docker Hub
+      object:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx
+        spec:
+          template:
+            metadata:
+              name: nginx
+              labels:
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx # the expression looks for this field
+          selector:
+            matchLabels:
+              app: nginx
+
+  - name: "Kubernetes: Disallow HostPorts"
+    cel: |
+      // According the Pod Security Standards, HostPorts should be disallowed entirely.
+      // https://kubernetes.io/docs/concepts/security/pod-security-standards/#baseline
+      
+      object.spec.template.spec.containers.all(container,
+        !has(container.ports) ||
+        container.ports.all(port,
+          !has(port.hostPort) ||
+          port.hostPort == 0
+        )
+      )
+    data: |
+      object:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx
+        spec:
+          template:
+            metadata:
+              name: nginx
+              labels:
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx
+                  ports:
+                    - containerPort: 80
+                      hostPort: 80 # the expression looks for this field
+          selector:
+            matchLabels:
+              app: nginx
+
+  - name: "Kubernetes: Require non-root containers"
+    cel: |
+      // According the Pod Security Standards, Containers must be required to run as non-root users.
+      // https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+      
+      // Pod or Containers must set `securityContext.runAsNonRoot`
+      (
+        (has(object.spec.template.spec.securityContext) && has(object.spec.template.spec.securityContext.runAsNonRoot)) ||
+        object.spec.template.spec.containers.all(container,
+          has(container.securityContext) && has(container.securityContext.runAsNonRoot)
+        )
+      )
+      &&
+      
+      // Neither Pod nor Containers should set `securityContext.runAsNonRoot` to false
+      (
+        (!has(object.spec.template.spec.securityContext) || !has(object.spec.template.spec.securityContext.runAsNonRoot) || object.spec.template.spec.securityContext.runAsNonRoot != false)
+        &&
+        object.spec.template.spec.containers.all(container,
+          !has(container.securityContext) || !has(container.securityContext.runAsNonRoot) || container.securityContext.runAsNonRoot != false
+        )
+      )
+    data: |
+      object:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx
+        spec:
+          template:
+            metadata:
+              name: nginx
+              labels:
+                app: nginx
+            spec:
+              securityContext:
+                runAsNonRoot: true # the expression looks for this field
+              containers:
+                - name: nginx
+                  image: nginx
+                  securityContext:
+                    runAsNonRoot: false # and this one
+          selector:
+            matchLabels:
+              app: nginx
+
+  - name: "Kubernetes: Drop ALL capabilities"
+    cel: |
+      // According the Pod Security Standards, Containers must drop `ALL` capabilities, and are only permitted to add back the `NET_BIND_SERVICE` capability.
+      // https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+      
+      // Containers must drop `ALL` capabilities,
+      object.spec.template.spec.containers.all(container,
+        has(container.securityContext) &&
+        has(container.securityContext.capabilities) &&
+        has(container.securityContext.capabilities.drop) &&
+        size(container.securityContext.capabilities.drop) >= 1 &&
+        container.securityContext.capabilities.drop.exists(c, c == 'ALL')
+      )
+      &&
+      // and are only permitted to add back the `NET_BIND_SERVICE` capability
+      object.spec.template.spec.containers.all(container,
+        !has(container.securityContext) ||
+        !has(container.securityContext.capabilities) ||
+        !has(container.securityContext.capabilities.add) ||
+        container.securityContext.capabilities.add.all(cap, cap in params.allowedCapabilities)
+      )
+    data: |
+      params:
+        allowedCapabilities: [NET_BIND_SERVICE]
+      object:
+        apiVersion: apps/v1
+        kind: Deployment
+        metadata:
+          name: nginx
+        spec:
+          template:
+            metadata:
+              name: nginx
+              labels:
+                app: nginx
+            spec:
+              containers:
+                - name: nginx
+                  image: nginx
+                  securityContext:
+                    capabilities: # the expression looks for this object
+                      drop: [ALL]
+                      add: [NET_BIND_SERVICE]
+          selector:
+            matchLabels:
+              app: nginx
+
+  - name: "Kubernetes: Semantic version check for image tags (Regex)"
+    cel: |
+      // Checks if the container images are tagged following the semantic version.
+
+      object.spec.containers.all(container,
+        container.image.contains("@sha256") || // allow digest
+        container.image.lastIndexOf(":") > -1 &&
+        container.image.substring(container.image.lastIndexOf(":") + 1)
+          .matches('^v?(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$')
+        // the regex above is suggested by semver.org: https://semver.org/#is-there-a-suggested-regular-expression-regex-to-check-a-semver-string
+        // allowing the "v" prefix
+      )
+    data: |
+      object:
+        apiVersion: v1
+        kind: Pod
+        metadata:
+          name: nginx
+          labels:
+            app: nginx
+        spec:
+          containers:
+            - name: ok1
+              image: registry.com:80/nginx:v1.2.3-rc.1
+            - name: ok2
+              image: registry.com:80/nginx@sha256:asdf
+            - name: wrong
+              image: registry.com:80/nginx:latest  # comment the wrong container to test a success scenario
+
+  - name: "URLs"
+    cel: |
+      // Examples of Kubernetes URL CEL library that is available in the playground.
+      // https://kubernetes.io/docs/reference/using-api/cel/#kubernetes-url-library
+
+      isURL(object.href) 
+      && url(object.href).getScheme() == 'https' 
+      && url(object.href).getHost() == 'example.com:80'
+      && url(object.href).getHostname() == 'example.com'
+      && url(object.href).getPort() == '80'
+      && url(object.href).getEscapedPath() == '/path'
+      && url(object.href).getQuery().size() == 1
+    data: |
+      {
+        "object": {
+          "href": "https://user:pass@example.com:80/path?query=val#fragment"
+        }
+      }
+
+  - name: "Check JWT custom claims"
+    cel: |
+      // Exercise provided in CEL-Go Google Codelab.
+      // https://codelabs.developers.google.com/codelabs/cel-go/index.html#10
+      // 
+      // Determine whether the jwt.extra_claims has at least one key that starts
+      // with the group prefix, and ensure that all group-like keys have list
+      // values containing only strings that end with '@acme.co'.
+      
+      jwt.extra_claims.exists(c, c.startsWith('group'))
+      && jwt.extra_claims
+        .filter(c, c.startsWith('group'))
+            .all(c, jwt.extra_claims[c]
+                .all(g, g.endsWith('@acme.co')))
+    data: |
+      jwt: {
+        "iss": "auth.acme.com:12350",
+        "sub": "serviceAccount:delegate@acme.co",
+        "aud": "my-project",
+        "extra_claims": {
+          "group1": [
+            "admin@acme.co",
+            "analyst@acme.co"
+          ],
+          "groupN": [
+            "forever@acme.co"
+          ],
+          "labels": [ "metadata", "prod", "pii" ]
+        }
+      }
+
+  - name: "Optional"
+    cel: 'object.?foo.orValue("fallback")'
+    data: "object: {}"
+
+  - name: "Duration and timestamp"
+    cel: |
+      // Validate that 'expired' date is after a 'created' date plus a 'ttl' duration
+      has(object.expired) && 
+      timestamp(object.created) + duration(object.ttl) < timestamp(object.expired)
+    data: |
+      object:
+        created: "2023-06-14T02:00:14+00:00"
+        ttl: "5m"
+        expired: "2023-06-14T02:06:14+00:00"
+
+  - name: "Quantity"
+    cel: |
+      // Quantity library introduced in Kubernetes 1.28
+      
+      isQuantity(object.memory) && 
+      quantity(object.memory)
+        .add(quantity("700M"))
+        .sub(1) // test without this subtraction
+        .isLessThan(quantity(object.limit))
+    data: |
+      object:
+        memory: 1.3G
+        limit: 2G

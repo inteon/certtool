@@ -1,0 +1,4 @@
+.idea
+bin/
+*.out
+web/main.wasm

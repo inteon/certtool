@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option go_package = "playground/parse/gen";
+
+message ExtensionSubjectAlternativeName {
+    repeated string dns_names = 1;
+	repeated string email_addresses = 2;
+	repeated string ip_addresses = 3;
+	repeated string uris = 4;
+}

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "playground/parse/gen";
+
+enum KeyUsage {
+    digital_signature = 0;
+    content_commitment = 1;
+    key_encipherment = 2;
+    data_encipherment = 3;
+    key_agreement = 4;
+    cert_sign = 5;
+    crl_sign = 6;
+    encipher_only = 7;
+    decipher_only = 8;
+}

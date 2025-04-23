@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "certtool/gen";
+
+package venafi.com.certificates.v1alpha1;
+
+message ExtensionPrivateKeyUsagePeriod {
+	optional google.protobuf.Timestamp not_before = 1;
+	optional google.protobuf.Timestamp not_after = 2;
+}

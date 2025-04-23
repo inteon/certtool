@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+import "common.proto";
+import "extension_2.5.29.15_key_usage.proto";
+import "extension_2.5.29.17_subject_alternative_name.proto";
+import "extension_2.5.29.19_basic_constraints.proto";
+import "extension_2.5.29.37_extended_key_usage.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "libx509/gen";
+
+message Certificate {
+    string certificate_authority_identifier = 1;
+
+	string serial_number = 2;
+	google.protobuf.Timestamp not_before = 3;
+    google.protobuf.Timestamp not_after = 4;
+
+    BasicConstraints basic_constraints = 5;
+    RDNSequence subject = 6;
+    SubjectAlternativeNames subject_alternative_name = 7;
+    repeated KeyUsage key_usages = 8;
+    repeated ExtendedKeyUsage extended_key_usages = 9;
+}

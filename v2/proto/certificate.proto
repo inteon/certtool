@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import "common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "certtool/gen";
+
+message Certificate {
+    string CertificateAuthorityIdentifier = 1;
+
+	string SerialNumber = 2;
+	google.protobuf.Timestamp NotBefore = 3;
+    google.protobuf.Timestamp NotAfter = 4;
+
+    RDNSequence Subject = 5;
+    repeated Extension extensions = 6;
+}

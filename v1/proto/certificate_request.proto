@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "common.proto";
+
+option go_package = "certtool/gen";
+
+message CertificateSigningRequest {
+    RDNSequence Subject = 1;
+    repeated Extension extensions = 2;
+}

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+option go_package = "certtool/gen";
+
+message ObjectIdentifier {
+    repeated int32 object_id_path = 1;
+}
+
+message RDNSequence {
+    repeated RDN relative_distinguished_names = 1;
+}
+
+message RDN {
+    repeated AttributeTypeAndValue attributes = 1;
+}
+
+message AttributeTypeAndValue {
+    ObjectIdentifier type = 1;
+    string value = 2;
+}
+
+message Extension {
+    ObjectIdentifier object_id = 1;
+    bool critical = 2;
+    bytes value = 3;
+}

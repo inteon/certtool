@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+option go_package = "libx509/gen";
+
+message BasicConstraints {
+  bool is_ca = 1;
+  optional int32 max_path_len = 2;
+}
